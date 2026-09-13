@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datacern"
+version = "0.2.0"
+description = "DataCern — evidence-grounded report generation with RAG, KPI/anomaly insights, and auto-generated charts."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12,<3.14"
+authors = [{ name = "DataCern Contributors" }]
+keywords = ["rag", "reports", "langchain", "chromadb", "analytics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "langchain>=0.3.0",
+  "langchain-openai>=0.3.0",
+  "langchain-community>=0.3.0",
+  "langchain-chroma>=0.2.0",
+  "langchain-google-genai>=2.0",
+  "chromadb>=1.0.0",
+  "pandas>=2.2.0",
+  "numpy>=2.0.0",
+  "matplotlib>=3.9.0",
+  "seaborn>=0.13.0",
+  "pypdf>=5.0.0",
+  "python-dotenv>=1.0.0",
+  "streamlit>=1.40",
+  "reportlab>=4.0",
+  "python-pptx>=0.6.23",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.4.0",
+  "mypy>=1.10.0",
+  "pre-commit>=3.0",
+]
+docs = []
+
+[project.scripts]
+datacern = "datacern.interfaces.cli:main"
+datacern-web = "datacern.interfaces.web_launcher:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

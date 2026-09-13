@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      LLM_PROVIDER_PREFERENCE: ${LLM_PROVIDER_PREFERENCE:-gemini}
+    volumes:
+      - ./var/uploads:/app/var/uploads
+      - ./var/chroma:/app/var/chroma
+      - ./var/outputs:/app/var/outputs
+      - ./var/cache:/app/var/cache
+    restart: unless-stopped
