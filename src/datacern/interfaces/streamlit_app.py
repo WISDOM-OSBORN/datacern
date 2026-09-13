@@ -23,6 +23,7 @@ if str(_SRC) not in sys.path:
 import streamlit as st  # noqa: E402
 
 from datacern import __version__  # noqa: E402
+from datacern.config import settings as config  # noqa: E402
 from datacern.reports.generator import ReportGenerator  # noqa: E402
 
 st.set_page_config(page_title=f"DataCern {__version__}", page_icon="📊", layout="wide")
@@ -34,6 +35,19 @@ st.caption(
 )
 
 # ------------------------------------------------------------------ inputs
+with st.sidebar:
+    st.header("Settings")
+    st.caption(f"LLM preference: `{config.LLM_PROVIDER_PREFERENCE}`")
+    _has_gemini = bool(config.GEMINI_API_KEY)
+    _has_openai = bool(config.OPENAI_API_KEY)
+    st.write(f"{'✅' if _has_gemini else '❌'} Gemini API key")
+    st.write(f"{'✅' if _has_openai else '❌'} OpenAI API key")
+    if not (_has_gemini or _has_openai):
+        st.warning(
+            "No API key configured. Locally, set keys in `.env`; on "
+            "Streamlit Community Cloud, add them under App settings → Secrets."
+        )
+
 uploaded = st.file_uploader("Choose a CSV or PDF file", type=["csv", "pdf"])
 query = st.text_input(
     "What should the report cover?",
