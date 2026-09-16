@@ -40,12 +40,20 @@ load_dotenv(BASE_DIR / ".env")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # ---------------------------------------------------------------- models
 LLM_PROVIDER_PREFERENCE = os.getenv("LLM_PROVIDER_PREFERENCE", "gemini").strip().lower()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 GEMINI_LLM_MODEL = os.getenv("GEMINI_LLM_MODEL", "gemini-flash-latest")
+GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "llama-3.1-8b-instant")
+OPENROUTER_LLM_MODEL = os.getenv(
+    "OPENROUTER_LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free"
+)
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")

@@ -31,7 +31,7 @@ st.set_page_config(page_title=f"DataCern {__version__}", page_icon="📊", layou
 st.title("📊 DataCern — evidence-grounded reports")
 st.caption(
     "Upload a CSV or PDF, ask a question, and get a professional report with "
-    "auto-generated charts — powered by RAG (Chroma + Gemini/OpenAI failover)."
+    "auto-generated charts — powered by RAG (Chroma + Gemini/Groq/OpenRouter/OpenAI failover)."
 )
 
 # ------------------------------------------------------------------ inputs
@@ -39,10 +39,14 @@ with st.sidebar:
     st.header("Settings")
     st.caption(f"LLM preference: `{config.LLM_PROVIDER_PREFERENCE}`")
     _has_gemini = bool(config.GEMINI_API_KEY)
+    _has_groq = bool(config.GROQ_API_KEY)
+    _has_openrouter = bool(config.OPENROUTER_API_KEY)
     _has_openai = bool(config.OPENAI_API_KEY)
     st.write(f"{'✅' if _has_gemini else '❌'} Gemini API key")
+    st.write(f"{'✅' if _has_groq else '❌'} Groq API key (`llama-3.1-8b-instant`)")
+    st.write(f"{'✅' if _has_openrouter else '❌'} OpenRouter API key (`llama-3.1-8b:free`)")
     st.write(f"{'✅' if _has_openai else '❌'} OpenAI API key")
-    if not (_has_gemini or _has_openai):
+    if not (_has_gemini or _has_groq or _has_openrouter or _has_openai):
         st.warning(
             "No API key configured. Locally, set keys in `.env`; on "
             "Streamlit Community Cloud, add them under App settings → Secrets."

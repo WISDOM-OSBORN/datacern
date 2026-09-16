@@ -14,9 +14,13 @@ class _Resp:
 
 def test_provider_order_respects_preference(monkeypatch):
     monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "openai")
-    assert provider_order() == ["openai", "gemini"]
+    assert provider_order() == ["openai", "gemini", "groq", "openrouter"]
     monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "gemini")
-    assert provider_order() == ["gemini", "openai"]
+    assert provider_order() == ["gemini", "openai", "groq", "openrouter"]
+    monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "groq")
+    assert provider_order() == ["groq", "gemini", "openai", "openrouter"]
+    monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "auto")
+    assert provider_order() == ["gemini", "openai", "groq", "openrouter"]
 
 
 def test_extract_text_handles_blocks():
@@ -44,6 +48,28 @@ def test_call_llm_fails_over(monkeypatch):
     monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "gemini")
     assert call_llm([HumanMessage(content="hi")]) == "OK"
     assert calls == ["fail", "good"]
+
+
+def test_call_llm_fails_over_chain(monkeypatch):
+    calls = []
+
+    class FailLLM:
+        def invoke(self, messages):
+            calls.append("fail")
+            raise RuntimeError("429 quota exceeded")
+
+    class GoodLLM:
+        def invoke(self, messages):
+            calls.append("good")
+            return _Resp("OK")
+
+    def _get(provider):
+        return GoodLLM() if provider == "openrouter" else FailLLM()
+
+    monkeypatch.setattr(providers_mod, "get_llm", _get)
+    monkeypatch.setattr(providers_mod.config, "LLM_PROVIDER_PREFERENCE", "gemini")
+    assert call_llm([HumanMessage(content="hi")]) == "OK"
+    assert calls == ["fail", "fail", "fail", "good"]
 
 
 def test_call_llm_raises_when_all_fail(monkeypatch):

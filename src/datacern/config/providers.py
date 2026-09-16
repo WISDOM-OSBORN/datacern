@@ -1,20 +1,20 @@
-"""Provider abstraction with automatic failover between Gemini and OpenAI.
+"""Provider abstraction with automatic failover across Gemini, OpenAI, Groq, OpenRouter.
 
 Two independent mechanisms:
 
 * ``active_embedding_provider()`` — a **one-time probe** (cached per process)
-  that picks the first provider whose embeddings actually work. This is
-  required because Chroma vectors are provider-specific: switching embedding
-  providers mid-stream would corrupt retrieval. The chosen provider is then
-  used for both indexing and querying.
+  that picks the first provider whose embeddings actually work. Only
+  Gemini and OpenAI provide embeddings (Groq has no embeddings API);
+  Groq/OpenRouter are skipped for embeddings and fall back to Gemini.
+  Required because Chroma vectors are provider-specific.
 
 * ``call_llm()`` — **per-call failover** for chat completions. On any
   provider error (quota exhausted, rate limit, bad/expired key, ...) it
-  automatically retries with the other provider, so reports and chart code
+  automatically retries with the next provider, so reports and chart code
   keep working as long as at least one provider is functional.
 
 The priority order is controlled by ``LLM_PROVIDER_PREFERENCE`` in ``.env``
-(``gemini`` by default, or ``openai``).
+(``gemini`` by default; ``openai`` | ``groq`` | ``openrouter`` | ``auto``).
 """
 
 from __future__ import annotations
@@ -32,7 +32,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from datacern.config import settings as config
 
-PROVIDERS = ("gemini", "openai")
+PROVIDERS = ("gemini", "openai", "groq", "openrouter")
+EMBEDDING_PROVIDERS = ("gemini", "openai")
 
 
 # ---------------------------------------------------------------- ordering
@@ -58,21 +59,54 @@ def get_llm(provider: str) -> BaseChatModel:
             google_api_key=config.GEMINI_API_KEY,
             temperature=config.LLM_TEMPERATURE,
         )
-    return ChatOpenAI(
-        model=config.LLM_MODEL,
-        temperature=config.LLM_TEMPERATURE,
-        api_key=config.OPENAI_API_KEY,
-    )
+    if provider == "openai":
+        return ChatOpenAI(
+            model=config.LLM_MODEL,
+            temperature=config.LLM_TEMPERATURE,
+            api_key=config.OPENAI_API_KEY,
+        )
+    if provider == "groq":
+        return ChatOpenAI(
+            model=config.GROQ_LLM_MODEL,
+            temperature=config.LLM_TEMPERATURE,
+            api_key=config.GROQ_API_KEY,
+            base_url=config.GROQ_BASE_URL,
+        )
+    if provider == "openrouter":
+        return ChatOpenAI(
+            model=config.OPENROUTER_LLM_MODEL,
+            temperature=config.LLM_TEMPERATURE,
+            api_key=config.OPENROUTER_API_KEY,
+            base_url=config.OPENROUTER_BASE_URL,
+            default_headers={"HTTP-Referer": "https://github.com/WISDOM-OSBORN/datacern"},
+        )
+    raise ValueError(f"Unknown LLM provider {provider!r}")
 
 
 def get_embeddings(provider: str) -> Embeddings:
-    """Build an embeddings model for the given provider."""
+    """Build an embeddings model for the given provider.
+
+    Groq has no embeddings API — it falls back to Gemini so that the RAG
+    vector store remains provider-consistent. OpenRouter also delegates
+    to Gemini (free) when available.
+    """
     if provider == "gemini":
         return GoogleGenerativeAIEmbeddings(
             model=config.GEMINI_EMBEDDING_MODEL,
             google_api_key=config.GEMINI_API_KEY,
         )
-    return OpenAIEmbeddings(model=config.EMBEDDING_MODEL, api_key=config.OPENAI_API_KEY)
+    if provider == "openai":
+        return OpenAIEmbeddings(model=config.EMBEDDING_MODEL, api_key=config.OPENAI_API_KEY)
+    if provider in ("groq", "openrouter"):
+        # No native embeddings — delegate to Gemini/OpenAI so probe can
+        # still succeed when only Groq/OpenRouter keys exist for LLM.
+        if config.GEMINI_API_KEY:
+            return GoogleGenerativeAIEmbeddings(
+                model=config.GEMINI_EMBEDDING_MODEL,
+                google_api_key=config.GEMINI_API_KEY,
+            )
+        return OpenAIEmbeddings(model=config.EMBEDDING_MODEL, api_key=config.OPENAI_API_KEY)
+    raise ValueError(f"Unknown embedding provider {provider!r}")
 
 
 # ---------------------------------------------------------------- embeddings probe
@@ -89,10 +123,18 @@ def _probe(provider: str) -> str | None:
 def active_embedding_provider() -> str:
     """Pick (once per process) the first provider whose embeddings work.
 
-    Raises RuntimeError if neither provider works.
+    Only embedding-capable providers are probed (Groq/OpenRouter delegate
+    to Gemini so they are skipped here to keep vector identity clear).
+
+    Raises RuntimeError if no embedding provider works.
     """
     errors: dict[str, str] = {}
-    for provider in provider_order():
+    # Probe only providers with native embeddings; Groq/OpenRouter share Gemini's store.
+    order = [p for p in provider_order() if p in EMBEDDING_PROVIDERS]
+    # If preference is Groq/OpenRouter, still need an embedding provider — try all.
+    if not order:
+        order = list(EMBEDDING_PROVIDERS)
+    for provider in order:
         error = _probe(provider)
         if error is None:
             return provider
@@ -100,7 +142,7 @@ def active_embedding_provider() -> str:
 
     detail = "; ".join(f"{k} -> {v}" for k, v in errors.items())
     raise RuntimeError(
-        f"No working provider for embeddings/LLM. Checked in order {provider_order()}. {detail}"
+        f"No working embedding provider. Checked {order}. {detail}"
     )
 
 

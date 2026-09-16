@@ -46,10 +46,18 @@ class ReportGenerator:
     """High-level API used by the CLI, web UI, and future API layer."""
 
     def __init__(self) -> None:
-        if not config.GEMINI_API_KEY and not config.OPENAI_API_KEY:
+        if not any(
+            (
+                config.GEMINI_API_KEY,
+                config.OPENAI_API_KEY,
+                config.GROQ_API_KEY,
+                config.OPENROUTER_API_KEY,
+            )
+        ):
             raise RuntimeError(
                 "No API keys configured. Create a .env file in the project root "
-                "and set GEMINI_API_KEY and/or OPENAI_API_KEY (see .env.example)."
+                "and set GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY / "
+                "OPENAI_API_KEY (see .env.example)."
             )
         self.usage = UsageTracker()
 
