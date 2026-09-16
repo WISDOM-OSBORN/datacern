@@ -153,6 +153,7 @@ def _is_failover_worthy(exc: BaseException) -> bool:
         "429",
         "401",
         "403",
+        "404",
         "quota",
         "rate limit",
         "billing",
@@ -170,6 +171,10 @@ def _is_failover_worthy(exc: BaseException) -> bool:
         "503",
         "permission_denied",
         "unauthenticated",
+        "model_not_found",
+        "not_found",
+        "invalid_request",
+        "does not exist",
     )
     return any(marker in text for marker in markers)
 
@@ -195,14 +200,33 @@ def _extract_text(content) -> str:
 def call_llm(messages: list[BaseMessage]) -> str:
     """Invoke a chat model across providers, failing over automatically."""
     last_error: BaseException | None = None
+    errors: list[str] = []
     for provider in provider_order():
+        # Skip providers with no key configured — treat as failover.
+        if provider == "gemini" and not config.GEMINI_API_KEY:
+            errors.append("gemini -> skipped (no GEMINI_API_KEY)")
+            continue
+        if provider == "openai" and not config.OPENAI_API_KEY:
+            errors.append("openai -> skipped (no OPENAI_API_KEY)")
+            continue
+        if provider == "groq" and not config.GROQ_API_KEY:
+            errors.append("groq -> skipped (no GROQ_API_KEY)")
+            continue
+        if provider == "openrouter" and not config.OPENROUTER_API_KEY:
+            errors.append("openrouter -> skipped (no OPENROUTER_API_KEY)")
+            continue
         try:
             response = get_llm(provider).invoke(messages)
             return _extract_text(response.content)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
+            errors.append(f"{provider} -> {type(exc).__name__}: {exc}")
             if not _is_failover_worthy(exc):
                 break
-    raise RuntimeError(
-        f"All LLM providers failed. Last error: {type(last_error).__name__}: {last_error}"
-    ) from last_error
+    detail = "; ".join(errors) if errors else "no providers attempted"
+    if last_error:
+        raise RuntimeError(
+            f"All LLM providers failed. Tried: {detail}. "
+            f"Last: {type(last_error).__name__}: {last_error}"
+        ) from last_error
+    raise RuntimeError(f"All LLM providers failed. {detail}") from last_error

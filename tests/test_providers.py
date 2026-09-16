@@ -31,6 +31,8 @@ def test_extract_text_handles_blocks():
 
 def test_call_llm_fails_over(monkeypatch):
     calls = []
+    for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.setattr(providers_mod.config, key, "test-key")
 
     class FailLLM:
         def invoke(self, messages):
@@ -52,6 +54,8 @@ def test_call_llm_fails_over(monkeypatch):
 
 def test_call_llm_fails_over_chain(monkeypatch):
     calls = []
+    for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.setattr(providers_mod.config, key, "test-key")
 
     class FailLLM:
         def invoke(self, messages):
@@ -73,6 +77,9 @@ def test_call_llm_fails_over_chain(monkeypatch):
 
 
 def test_call_llm_raises_when_all_fail(monkeypatch):
+    for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.setattr(providers_mod.config, key, "test-key")
+
     class FailLLM:
         def invoke(self, messages):
             raise RuntimeError("429 quota exceeded")
