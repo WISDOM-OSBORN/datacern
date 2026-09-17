@@ -17,6 +17,11 @@ from datacern.charts.validator import validate_execution
 from datacern.config import settings as config
 from datacern.config.providers import active_embedding_provider, call_llm
 from datacern.data.loaders import dataframe_summary, load_file
+from datacern.data.preprocessing import (
+    PreprocessOptions,
+    format_preprocessing_report,
+    preprocess_dataframe,
+)
 from datacern.observability.logging import get_logger
 from datacern.rag.pipeline import (
     RAGPipeline,
@@ -104,6 +109,7 @@ class ReportGenerator:
         original_filename: str | None = None,
         export_pdf_: bool = False,
         export_pptx_: bool = False,
+        preprocess_options: PreprocessOptions | dict | None = None,
     ) -> dict:
         """Generate a complete report.
 
@@ -115,8 +121,17 @@ class ReportGenerator:
 
         loaded = load_file(file_path)
         df = loaded["dataframe"]
+        # --- preprocessing (opt-in, conservative defaults) ---
+        if isinstance(preprocess_options, dict):
+            preprocess_options = PreprocessOptions(**preprocess_options)
+        df, prep_report = preprocess_dataframe(df, preprocess_options)
         df_summary = dataframe_summary(df)
-        insights = build_insight_context(df)
+        # inject preprocessing lineage into insights context
+        insight_base = build_insight_context(df)
+        prep_line = format_preprocessing_report(prep_report)
+        insights = (
+            f"{insight_base}\n\n--- preprocessing ---\n{prep_line}" if prep_line else insight_base
+        )
 
         embedding_provider = active_embedding_provider()
         pipeline = RAGPipeline(
@@ -191,6 +206,7 @@ class ReportGenerator:
             "warnings": warnings,
             "usage": self.usage.summary(),
             "elapsed_seconds": round(elapsed, 2),
+            "preprocessing": prep_report,
             "outputs": {
                 "report_path": report_path,
                 "chart_dir": str(store.chart_dir),
@@ -212,6 +228,7 @@ class ReportGenerator:
             "exec_detail": exec_detail,
             "usage": ledger["usage"],
             "embedding_provider": embedding_provider,
+            "preprocessing": prep_report,
             "run_id": run_id,
             "ledger_path": ledger_path,
             "outputs": ledger["outputs"],

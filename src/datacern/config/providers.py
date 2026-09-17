@@ -141,9 +141,7 @@ def active_embedding_provider() -> str:
         errors[provider] = error
 
     detail = "; ".join(f"{k} -> {v}" for k, v in errors.items())
-    raise RuntimeError(
-        f"No working embedding provider. Checked {order}. {detail}"
-    )
+    raise RuntimeError(f"No working embedding provider. Checked {order}. {detail}")
 
 
 # ---------------------------------------------------------------- LLM failover

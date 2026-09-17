@@ -49,9 +49,7 @@ LLM_PROVIDER_PREFERENCE = os.getenv("LLM_PROVIDER_PREFERENCE", "gemini").strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 GEMINI_LLM_MODEL = os.getenv("GEMINI_LLM_MODEL", "gemini-2.0-flash")
 GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
-OPENROUTER_LLM_MODEL = os.getenv(
-    "OPENROUTER_LLM_MODEL", "google/gemma-4-26b-a4b-it:free"
-)
+OPENROUTER_LLM_MODEL = os.getenv("OPENROUTER_LLM_MODEL", "google/gemma-4-26b-a4b-it:free")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))

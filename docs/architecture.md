@@ -5,14 +5,15 @@
 ```
 upload (CLI path / Streamlit tempfile)
   → loaders.load_file            # CSV (CSVLoader + DataFrame) or PDF
-  → profiling + analysis         # quality profile, KPIs, anomaly scan (deterministic)
-  → providers.active_embedding_provider   # one-time probe, cached per process
+  → data/preprocessing           # sanitize, coerce, missing/duplicate/constant (opt-in, lineage)
+  → profiling + analysis         # quality profile, KPIs, anomaly scan on cleaned df
+  → providers.active_embedding_provider   # one-time probe (Gemini/OpenAI), cached per process
   → rag.pipeline.RAGPipeline     # content-hash collection, reset, index, retrieve top-k
-  → reports.generator            # LLM report (context + KPIs + citations instruction)
+  → reports.generator            # LLM report (context + KPIs + preprocessing lineage + citations)
   → charts.planner               # rule-based chart-type plan
   → charts.secure_executor       # AST whitelist → child process → PNG capture
   → charts.validator             # warnings on failures/empty/tiny figures
-  → services.storage.RunStore    # var/outputs/<run_id>/{report.md,charts/,run.json}
+  → services.storage.RunStore    # var/outputs/<run_id>/{report.md,charts/,run.json (+preprocessing)}
   → reports.exporters            # optional styled PDF / PPTX
 ```
 
@@ -41,8 +42,9 @@ upload (CLI path / Streamlit tempfile)
 | Module | Responsibility |
 |---|---|
 | `config/settings.py` | Env, paths (`var/`), model names, limits; lazy dir creation |
-| `config/providers.py` | LLM/embedding factories, probe, `call_llm` failover |
+| `config/providers.py` | 4-provider LLM/embedding factories, probe, `call_llm` failover |
 | `data/loaders.py` | CSV/PDF loading, size guard, merged CSV documents |
+| `data/preprocessing.py` | Opt-in cleaning (sanitize, coerce, missing, dedupe) + lineage |
 | `data/profiling.py` | Missing/duplicates/constant/suspicious-value profile |
 | `rag/pipeline.py` | Split → embed → persist → retrieve → context assembly |
 | `analysis/kpis.py` | Totals/means/top-bottom per measure × group |
@@ -57,5 +59,5 @@ upload (CLI path / Streamlit tempfile)
 | `services/storage.py` | Run directories, sanitized names, `run.json` ledger |
 | `services/cost_tracking.py` | Token/latency estimates per run |
 | `interfaces/cli.py` | `datacern` console script |
-| `interfaces/streamlit_app.py` | Web UI |
+| `interfaces/streamlit_app.py` | Web UI (preview, quality, cleaning, history, editor, status) |
 | `observability/logging.py` | stderr structured logging |
