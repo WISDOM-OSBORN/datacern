@@ -47,10 +47,10 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 LLM_PROVIDER_PREFERENCE = os.getenv("LLM_PROVIDER_PREFERENCE", "gemini").strip().lower()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
-GEMINI_LLM_MODEL = os.getenv("GEMINI_LLM_MODEL", "gemini-flash-latest")
-GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "llama-3.1-8b-instant")
+GEMINI_LLM_MODEL = os.getenv("GEMINI_LLM_MODEL", "gemini-2.0-flash")
+GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 OPENROUTER_LLM_MODEL = os.getenv(
-    "OPENROUTER_LLM_MODEL", "meta-llama/llama-3.1-8b-instruct:free"
+    "OPENROUTER_LLM_MODEL", "google/gemma-4-26b-a4b-it:free"
 )
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
