@@ -99,6 +99,43 @@ with st.sidebar:
                     st.download_button(
                         "Download report.md", report_p.read_bytes(), file_name=report_p.name
                     )
+                # admin-only delete (public app stays open)
+                admin_pw = st.secrets.get("ADMIN_PASSWORD", "") if hasattr(st, "secrets") else ""
+                if admin_pw:
+                    with st.expander("Admin"):
+                        pw = st.text_input("Admin password", type="password", key="admin_pw")
+                        if st.button("Delete this run", type="secondary"):
+                            if pw == admin_pw:
+                                import shutil
+
+                                try:
+                                    shutil.rmtree(  # noqa: E501
+                                        Path(hj["outputs"]["report_path"]).parent,
+                                        ignore_errors=True,
+                                    )
+                                    st.success("Run deleted.")
+                                    st.session_state.history_loaded = None
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Delete failed: {e}")
+                            else:
+                                st.error("Wrong password")
+                        if st.button("Purge runs >7 days"):
+                            if pw == admin_pw:
+                                import shutil
+                                import time
+
+                                cutoff = time.time() - 7 * 86400
+                                purged = 0
+                                for pj in outputs_root.glob("*/run.json"):
+                                    if pj.stat().st_mtime < cutoff:
+                                        shutil.rmtree(pj.parent, ignore_errors=True)
+                                        purged += 1
+                                st.success(f"Purged {purged} old runs.")
+                            else:
+                                st.error("Wrong password")
+                else:
+                    st.caption("Set ADMIN_PASSWORD in Secrets to enable delete/purge.")
             except Exception:
                 pass
 
