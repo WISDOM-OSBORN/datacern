@@ -190,9 +190,7 @@ def preprocess_dataframe(
             report["applied"].append(
                 f"drop_duplicates: {before}->{len(df)} (removed {before - len(df)})"
             )
-            report["notes"].append(
-                f"removed {before - len(df)} dupes (was {before_dupes} before)"
-            )
+            report["notes"].append(f"removed {before - len(df)} dupes (was {before_dupes} before)")
 
     # final stats
     after_missing = df.isna().sum().to_dict() if df is not None else {}

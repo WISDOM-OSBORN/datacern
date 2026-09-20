@@ -36,27 +36,23 @@ CHART_SYSTEM_PROMPT = (
     "You generate matplotlib/seaborn chart code for business reports. "
     "You write ONLY valid Python code. No explanations and no markdown "
     "code fences. The variable `df` (a pandas DataFrame) is already defined. "
-    "You may use pd, np, plt, sns. Create 1 to 3 informative, publication-quality "
-    "figures. Do NOT call plt.show(), plt.savefig(), or write any files. "
-    "Figures are captured automatically. "
-    "Always import anything you use (e.g. from matplotlib.patches import Patch). "
-    "Never hardcode category lists or color palettes derived from the data; "
-    "derive them from `df` (e.g. df['product'].unique()) or use built-in "
-    "palettes like palette='viridis'."
+    "You may use pd, np, plt, sns. Create 1 to 6 informative, publication-quality "
+    "figures (match the chart plan count). Do NOT call plt.show(), plt.savefig(), or write any files. "  # noqa: E501
+    "Figures are captured automatically. Use plt.style.use('seaborn-v0_8-whitegrid') and "
+    "sns.set_palette(palette) where palette is provided in the prompt. "
+    "Always import anything you use. Never hardcode category lists; derive from df."
 )
 
-CHART_USER_PROMPT = """DATAFRAME SUMMARY:
-{df_summary}
-
-CHART PLAN:
-{chart_plan}
-
-REPORT THESE CHARTS ACCOMPANY:
-{report_snippet}
-
-TASK: produce Python code that creates up to 3 charts that best visualise the user's request:
-{query}
-Return only the code.{fix_hint}"""
+CHART_USER_PROMPT = (
+    "DATAFRAME SUMMARY:\n{df_summary}\n\n"
+    "CHART PLAN:\n{chart_plan}\n\n"
+    "STYLE: palette={palette}\n"
+    "Use sns.set_palette('{palette}') and plt.style.use('seaborn-v0_8-whitegrid')\n\n"
+    "REPORT THESE CHARTS ACCOMPANY:\n{report_snippet}\n\n"
+    "TASK: produce Python code that creates up to {max_charts} charts "
+    "that best visualise the user's request:\n{query}\n"
+    "Return only the code.{fix_hint}"
+)
 
 CHART_FIX_HINT = """
 

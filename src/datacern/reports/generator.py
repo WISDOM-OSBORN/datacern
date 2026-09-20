@@ -84,7 +84,14 @@ class ReportGenerator:
         return report
 
     def _write_chart_code(
-        self, query: str, df_summary: str, chart_plan: str, report: str, last_error: str = ""
+        self,
+        query: str,
+        df_summary: str,
+        chart_plan: str,
+        report: str,
+        palette: str = "viridis",
+        max_charts: int = 6,
+        last_error: str = "",
     ) -> str:
         snippet = report[:1500]
         fix_hint = CHART_FIX_HINT.format(error=last_error) if last_error else ""
@@ -93,6 +100,8 @@ class ReportGenerator:
             df_summary=df_summary,
             chart_plan=chart_plan,
             report_snippet=snippet,
+            palette=palette,
+            max_charts=max_charts,
             fix_hint=fix_hint,
         )
         messages = [SystemMessage(content=CHART_SYSTEM_PROMPT), HumanMessage(content=prompt)]
@@ -110,6 +119,9 @@ class ReportGenerator:
         export_pdf_: bool = False,
         export_pptx_: bool = False,
         preprocess_options: PreprocessOptions | dict | None = None,
+        chart_types: list[str] | None = None,
+        chart_palette: str = "viridis",
+        max_charts: int = 6,
     ) -> dict:
         """Generate a complete report.
 
@@ -148,7 +160,7 @@ class ReportGenerator:
         # --------------------------------------------------- charts (CSV only)
         run_id = config.new_run_id()
         store = RunStore(run_id, original_filename or loaded["filename"])
-        chart_plan = plan_charts(df, user_query)
+        chart_plan = plan_charts(df, user_query, selected=chart_types, max_charts=max_charts)
 
         charts: list[str] = []
         exec_detail: dict | None = None
@@ -156,7 +168,13 @@ class ReportGenerator:
             last_error = ""
             for _attempt in range(config.CHART_MAX_ATTEMPTS):
                 code = self._write_chart_code(
-                    user_query, df_summary, chart_plan, report, last_error=last_error
+                    user_query,
+                    df_summary,
+                    chart_plan,
+                    report,
+                    palette=chart_palette,
+                    max_charts=max_charts,
+                    last_error=last_error,
                 )
                 exec_detail = execute_code(code, dataframe=df, timeout=config.EXEC_TIMEOUT)
                 exec_detail["code"] = code
@@ -203,6 +221,9 @@ class ReportGenerator:
             "embedding_provider": embedding_provider,
             "chunk_count": chunk_count,
             "chart_count": len(charts),
+            "chart_plan": chart_plan,
+            "chart_palette": chart_palette,
+            "max_charts": max_charts,
             "warnings": warnings,
             "usage": self.usage.summary(),
             "elapsed_seconds": round(elapsed, 2),

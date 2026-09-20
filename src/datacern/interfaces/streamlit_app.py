@@ -22,6 +22,7 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from datacern import __version__  # noqa: E402
+from datacern.charts.planner import CHART_CATALOG, available_chart_options  # noqa: E402
 from datacern.config import settings as config  # noqa: E402
 from datacern.data.loaders import load_file  # noqa: E402
 from datacern.data.preprocessing import PreprocessOptions  # noqa: E402
@@ -37,6 +38,9 @@ for _k, _v in {
     "prep_missing": "keep",
     "prep_trim": True,
     "prep_coerce": True,
+    "chart_max": 6,
+    "chart_palette": "viridis",
+    "chart_selected": [],
     "history_loaded": None,
     "last_result": None,
     "preview_df": None,
@@ -57,7 +61,10 @@ with st.sidebar:
     st.caption(f"LLM preference: `{config.LLM_PROVIDER_PREFERENCE}`")
     st.write(f"{'✅' if config.GEMINI_API_KEY else '❌'} Gemini API key")
     st.write(f"{'✅' if config.GROQ_API_KEY else '❌'} Groq (`{config.GROQ_LLM_MODEL}`)")
-    st.write(f"{'✅' if config.OPENROUTER_API_KEY else '❌'} OpenRouter (`{config.OPENROUTER_LLM_MODEL}`)")  # noqa: E501
+    st.write(
+        f"{'✅' if config.OPENROUTER_API_KEY else '❌'} OpenRouter "  # noqa: E501
+        f"(`{config.OPENROUTER_LLM_MODEL}`)"
+    )
     st.write(f"{'✅' if config.OPENAI_API_KEY else '❌'} OpenAI API key")
     if not any(
         (
@@ -157,6 +164,27 @@ with st.sidebar:
             ],
             key="prep_missing",
         )
+    with st.expander("Visuals (charts)"):
+        st.slider("Max charts", 1, 6, key="chart_max")
+        st.selectbox(
+            "Palette",
+            ["viridis", "Set2", "tab10", "coolwarm", "magma", "pastel"],
+            key="chart_palette",
+        )
+        st.caption("Leave empty for smart auto (ranked). Select to override.")
+        # options depend on preview
+        _opts = []
+        try:
+            _opts = available_chart_options(st.session_state.preview_df)
+        except Exception:
+            _opts = list(CHART_CATALOG.keys())
+        if _opts:
+            st.multiselect(
+                "Chart types (override smart)",
+                options=_opts,
+                format_func=lambda x: f"{x}: {CHART_CATALOG.get(x, x)}",
+                key="chart_selected",
+            )
 
 # ------------------------------------------------------------------ inputs
 uploaded = st.file_uploader("Choose a CSV or PDF file", type=["csv", "pdf"])
@@ -206,7 +234,9 @@ if uploaded is not None:
         st.subheader(
             f"Preview: {preview_name} — {df_preview.shape[0]} rows × {df_preview.shape[1]} cols"
         )
-        tab_data, tab_quality, tab_clean = st.tabs(["Data", "Quality", "Cleaning"])
+        tab_data, tab_quality, tab_clean, tab_visuals = st.tabs(
+            ["Data", "Quality", "Cleaning", "Visuals"]
+        )
 
         with tab_data:
             st.dataframe(df_preview.head(100), use_container_width=True)
@@ -261,6 +291,19 @@ if uploaded is not None:
                     )
             # store for generate step
             st.session_state["_per_col"] = {k: v for k, v in per_col.items() if v != "(global)"}
+
+        with tab_visuals:
+            st.caption(
+                "Smart auto ranks diverse charts; override in sidebar Visuals expander (up to 6)."
+            )
+            st.write(f"**Max charts:** {st.session_state.chart_max}")
+            st.write(f"**Palette:** {st.session_state.chart_palette}")
+            sel = st.session_state.chart_selected
+            st.write(f"**Selected:** {', '.join(sel) if sel else 'smart auto (ranked)'}")
+            opts = available_chart_options(df_preview)
+            st.caption(
+                f"Available for this data: {', '.join(opts) if opts else 'none — will use fallback'}"  # noqa: E501
+            )
     elif df_preview is not None and df_preview.empty:
         st.info("File loaded but table is empty (0 rows).")
     elif uploaded is not None:
@@ -298,6 +341,7 @@ if generate:
                 st.write("Validating & preprocessing…")
                 generator = ReportGenerator()
                 st.write("Indexing & retrieving (RAG)…")
+                chart_sel = st.session_state.chart_selected or None
                 result = generator.generate(
                     tmp_path,
                     query.strip(),
@@ -305,6 +349,9 @@ if generate:
                     export_pdf_=want_pdf,
                     export_pptx_=want_pptx,
                     preprocess_options=prep_opts,
+                    chart_types=chart_sel,
+                    chart_palette=st.session_state.chart_palette,
+                    max_charts=int(st.session_state.chart_max),
                 )
                 status.update(label="Report ready", state="complete", expanded=False)
 
