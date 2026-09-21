@@ -67,9 +67,13 @@ def _header_footer(canvas, doc):
 
 
 def export_pdf(
-    report_md: str, chart_paths: list[str], target: Path, title: str = "DataCern Report"
+    report_md: str,
+    chart_paths: list[str],
+    target: Path,
+    title: str = "DataCern Report",
+    captions: list[str] | None = None,
 ) -> str:
-    """Render a styled PDF with DejaVu Sans. Returns saved path."""
+    """Render a styled PDF with DejaVu Sans. Short captions per Figure."""
     from reportlab.lib.colors import HexColor
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -167,10 +171,18 @@ def export_pdf(
                 story.append(Paragraph(_strip_markdown(para), style))
         story.append(Spacer(1, 0.2 * cm))
 
+    captions = captions or [f"Figure {i}" for i in range(1, len(chart_paths) + 1)]
     for i, chart in enumerate(chart_paths, 1):
+        cap = captions[i - 1] if i - 1 < len(captions) else f"Figure {i}"
         story.append(PageBreak())
-        story.append(Paragraph(f"Figure {i}", caption_style))
-        story.append(Spacer(1, 0.2 * cm))
+        story.append(Paragraph(f"Figure {i} — {_strip_markdown(cap)[:140]}", caption_style))
+        story.append(Spacer(1, 0.15 * cm))
+        # short insight line under caption
+        if " — " in cap:
+            insight = cap.split(" — ", 1)[1].strip()
+            if insight:
+                story.append(Paragraph(_strip_markdown(insight)[:200], body))
+                story.append(Spacer(1, 0.15 * cm))
         story.append(RLImage(chart, width=16 * cm, height=9 * cm, kind="proportional"))
 
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -189,9 +201,13 @@ def export_pdf(
 
 
 def export_pptx(
-    report_md: str, chart_paths: list[str], target: Path, title: str = "DataCern Report"
+    report_md: str,
+    chart_paths: list[str],
+    target: Path,
+    title: str = "DataCern Report",
+    captions: list[str] | None = None,
 ) -> str:
-    """Render a PPTX deck. Returns the saved path. Requires ``python-pptx``."""
+    """Render a clean professional PPTX: title per chart + short caption."""
     from pptx import Presentation
     from pptx.util import Inches
 
@@ -220,9 +236,33 @@ def export_pptx(
         for bullet in bullets[:8]:
             body.add_paragraph().text = bullet[:300]
 
-    for chart in chart_paths:
+    captions = captions or [f"Figure {i}" for i in range(1, len(chart_paths) + 1)]
+    for i, chart in enumerate(chart_paths, 1):
+        cap = captions[i - 1] if i - 1 < len(captions) else f"Figure {i}"
+        # clean slide: title = short caption title, caption textbox below image
         slide = prs.slides.add_slide(prs.slide_layouts[5])
-        slide.shapes.add_picture(chart, Inches(0.5), Inches(0.5), width=Inches(12.33))
+        title_text = cap.split(" — ")[0][:60] if " — " in cap else cap[:60]
+        # title box
+        txBox = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.33), Inches(0.5))
+        tf = txBox.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = f"Figure {i}: {title_text}"
+        p.runs[0].font.size = Inches(0.18)
+        p.runs[0].font.bold = True
+        slide.shapes.add_picture(
+            chart, Inches(0.5), Inches(0.7), width=Inches(12.33), height=Inches(5.5)
+        )
+        # short insight below image (max 22 words, not wordy)
+        insight = cap.split(" — ", 1)[1].strip() if " — " in cap else ""
+        if insight:
+            capBox = slide.shapes.add_textbox(Inches(0.5), Inches(6.4), Inches(12.33), Inches(0.7))
+            ctf = capBox.text_frame
+            ctf.word_wrap = True
+            cp = ctf.paragraphs[0]
+            cp.text = insight[:180]
+            cp.runs[0].font.size = Inches(0.12)
+            cp.runs[0].font.italic = True
 
     target.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(target))

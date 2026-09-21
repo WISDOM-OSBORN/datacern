@@ -30,6 +30,8 @@ from datacern.rag.pipeline import (
 )
 from datacern.reports.exporters import export_pdf, export_pptx
 from datacern.reports.prompts import (
+    CAPTION_SYSTEM_PROMPT,
+    CAPTION_USER_PROMPT,
     CHART_FIX_HINT,
     CHART_SYSTEM_PROMPT,
     CHART_USER_PROMPT,
@@ -109,6 +111,46 @@ class ReportGenerator:
             code = _strip_code_fences(call_llm(messages))
         self.usage.record_output("chart_code", code)
         return code
+
+    def _write_captions(
+        self, query: str, df_summary: str, chart_plan: str, report: str, insights: str, n: int
+    ) -> list[str]:
+        """Generate short professional captions (one per chart). Fallback to plan if LLM fails."""
+        if n <= 0:
+            return []
+        prompt = CAPTION_USER_PROMPT.format(
+            df_summary=df_summary,
+            chart_plan=chart_plan,
+            report_snippet=report[:1200],
+            insights=insights[:800],
+            n=n,
+            query=query,
+        )
+        messages = [SystemMessage(content=CAPTION_SYSTEM_PROMPT), HumanMessage(content=prompt)]
+        try:
+            with self.usage.track("captions", config.GEMINI_LLM_MODEL, prompt):
+                raw = call_llm(messages).strip()
+            self.usage.record_output("captions", raw)
+            lines = [line.strip(" -•\t") for line in raw.splitlines() if line.strip()]
+            # enforce n lines, trim to 22 words each
+            caps: list[str] = []
+            for line in lines[:n]:
+                words = line.split()
+                if len(words) > 22:
+                    line = " ".join(words[:22])
+                caps.append(line)
+            # pad if short
+            while len(caps) < n:
+                caps.append(
+                    f"Figure {len(caps) + 1} — {chart_plan.splitlines()[len(caps)].strip()[:60]}"
+                )
+            return caps[:n]
+        except Exception:
+            # deterministic fallback: use chart plan lines
+            fallback: list[str] = []
+            for idx, pline in enumerate(chart_plan.splitlines()[:n], 1):
+                fallback.append(f"Figure {idx} — {pline.strip()[:90]}")
+            return fallback
 
     # ------------------------------------------------------------- main
     def generate(
@@ -191,17 +233,32 @@ class ReportGenerator:
             elif exec_detail.get("success") and not exec_detail.get("images"):
                 exec_detail = None  # no figures is not a failure of the report
 
+        # --- captions (short, professional, after charts) ---
+        chart_captions: list[str] = []
+        if charts:
+            chart_captions = self._write_captions(
+                user_query, df_summary, chart_plan, report, insights, len(charts)
+            )
+
         # ------------------------------------------------------------- persist
         report_path = store.save_report(report)
         pdf_path, pptx_path = "", ""
         title = f"DataCern Report — {store.stem}"
         if export_pdf_:
             pdf_path = export_pdf(
-                report, charts, Path(store.root) / f"{store.stem}_{run_id}.pdf", title
+                report,
+                charts,
+                Path(store.root) / f"{store.stem}_{run_id}.pdf",
+                title,
+                chart_captions,
             )
         if export_pptx_:
             pptx_path = export_pptx(
-                report, charts, Path(store.root) / f"{store.stem}_{run_id}.pptx", title
+                report,
+                charts,
+                Path(store.root) / f"{store.stem}_{run_id}.pptx",
+                title,
+                chart_captions,
             )
 
         warnings = validate_execution(exec_detail, want_images=df is not None)
@@ -224,6 +281,7 @@ class ReportGenerator:
             "chart_plan": chart_plan,
             "chart_palette": chart_palette,
             "max_charts": max_charts,
+            "chart_captions": chart_captions,
             "warnings": warnings,
             "usage": self.usage.summary(),
             "elapsed_seconds": round(elapsed, 2),
@@ -240,6 +298,7 @@ class ReportGenerator:
         return {
             "report": report,
             "charts": charts,
+            "chart_captions": chart_captions,
             "context": context,
             "df_summary": df_summary,
             "insights": insights,

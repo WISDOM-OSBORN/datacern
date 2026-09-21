@@ -377,13 +377,15 @@ if generate:
 
             if result["charts"]:
                 st.subheader("Charts")
+                caps = result.get("chart_captions") or [
+                    f"Figure {i + 1}" for i in range(len(result["charts"]))
+                ]
                 cols = st.columns(2)
                 for i, chart in enumerate(result["charts"]):
+                    cap = caps[i] if i < len(caps) else f"Figure {i + 1}"
                     with cols[i % 2]:
-                        # alt text for accessibility
-                        alt = f"Chart {i + 1}: {result.get('df_summary', '')[:80]}"
-                        st.image(chart, caption=f"Chart {i + 1}", use_container_width=True)
-                        st.caption(alt[:120])
+                        st.image(chart, caption=cap[:80], use_container_width=True)
+                        st.caption(cap[:160])
             else:
                 st.info("No charts produced (input may be a PDF without tabular data).")
 

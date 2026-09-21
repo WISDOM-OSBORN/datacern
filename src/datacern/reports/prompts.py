@@ -14,7 +14,7 @@ REPORT_USER_PROMPT = """Write a professional {kind} report in Markdown answering
 USER REQUEST:
 {query}
 
-RETRIEVED CONTEXT FROM THE SOURCE FILE (with source chunk references):
+RETRIEVED CONTEXT FROM THE SOURCE FILE (with source chunk id):
 {context}
 
 DATAFRAME SUMMARY (source data used for charts):
@@ -26,10 +26,10 @@ ANALYTICAL BRIEF (deterministic computations — cite these numbers exactly):
 Requirements:
 - Structure: Title, Executive Summary, analysis sections, Findings, Recommendations, Limitations.
 - Cite specific numbers ONLY from the context, KPI brief, or dataframe summary.
-- For claims from retrieved context, append the chunk reference in brackets, e.g. [chunk 3].
+- For claims from retrieved context, append the chunk id in brackets, e.g. [chunk 3].
 - Use clear Markdown headings, bullet lists, and short paragraphs.
 - End with a 'Key Figures' table if numeric data is available.
-- Target length: 400-800 words.
+- Target length: 400 words max (concise). Professional tone.
 """
 
 CHART_SYSTEM_PROMPT = (
@@ -59,3 +59,20 @@ CHART_FIX_HINT = """
 IMPORTANT: your previously generated code failed to execute with this error:
 {error}
 Please correct the code so it runs without errors and return only the corrected code."""
+
+CAPTION_SYSTEM_PROMPT = (
+    "You write short, professional chart captions. "
+    "Given chart plan, dataframe summary, and report excerpt, produce one concise title "
+    "plus one sentence insight per chart (max 22 words per caption). "
+    "Cite an exact KPI number when relevant. No markdown fences, just lines."
+)
+
+CAPTION_USER_PROMPT = (
+    "DATAFRAME SUMMARY:\n{df_summary}\n\n"
+    "CHART PLAN:\n{chart_plan}\n\n"
+    "REPORT EXCERPT:\n{report_snippet}\n\n"
+    "INSIGHTS:\n{insights}\n\n"
+    "TASK: For {n} chart(s), return exactly {n} lines, one per chart, "
+    "format: 'Title — insight sentence.' Keep each line under 22 words.\n"
+    "Charts requested: {query}"
+)
